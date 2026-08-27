@@ -1,7 +1,7 @@
 from tools.groq_client import get_llm
 from tools.razorpay_tool import create_payment_link
 from datetime import datetime
-import sqlite3
+import sqlite3, time
 from database import DB_PATH
 
 HINGLISH_TEMPLATES = {
@@ -13,38 +13,98 @@ HINGLISH_TEMPLATES = {
     "SUBSCRIPTION_LAPSE": "Aapka subscription renew karna baaki hai 👇"
 }
 
+ESCALATION_MESSAGES = {
+    1: "Friendly reminder — payment pending hai",
+    2: "Aapka order wait kar raha hai — abhi complete karein",
+    3: "Last reminder — alternate payment method try karein",
+    4: "ESCALATED_TO_HUMAN"
+}
+
+def get_customer_memory(customer_name: str) -> dict:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    memory = conn.execute(
+        "SELECT * FROM customer_memory WHERE customer_name=?",
+        (customer_name,)
+    ).fetchone()
+    conn.close()
+    return dict(memory) if memory else None
+
+def update_customer_memory(customer_name: str, intervention: str, level: int):
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute('''INSERT INTO customer_memory 
+        (customer_name, total_failures, total_attempts, last_intervention, last_contact, escalation_level)
+        VALUES (?,1,1,?,?,?)
+        ON CONFLICT(customer_name) DO UPDATE SET
+        total_failures = total_failures + 1,
+        total_attempts = total_attempts + 1,
+        last_intervention = ?,
+        last_contact = ?,
+        escalation_level = ?''',
+        (customer_name, intervention, datetime.now().isoformat(), level,
+         intervention, datetime.now().isoformat(), level)
+    )
+    conn.commit()
+    conn.close()
+
 def run_recovery_agent(payment: dict) -> dict:
     llm = get_llm()
+    customer = payment['customer_name']
+
+    # Check memory
+    memory = get_customer_memory(customer)
+    
+    if memory:
+        level = min(memory['escalation_level'] + 1, 4)
+        if memory['total_attempts'] >= 3:
+            return {
+                "payment_id": payment['id'],
+                "message": f"Max attempts reached for {customer}. Escalated to human.",
+                "link": None,
+                "diagnosis": "Memory: 3 previous attempts — stopping rule triggered",
+                "intervention": "HUMAN_ESCALATION",
+                "escalation_level": 4,
+                "memory_used": True
+            }
+    else:
+        level = 1
 
     # Groq Call 1 — Diagnose
     diagnosis = llm.invoke(f"""
-You are a payment recovery expert.
-Payment failed with code: {payment['failure_code']}
-Amount: ₹{payment['amount']}
-Customer: {payment['customer_name']}
-
-Return JSON only:
-{{"failure_type": "...", "severity": "LOW/MEDIUM/HIGH", "recoverable": true/false, "reasoning": "..."}}
+Payment failed: {payment['failure_code']}
+Amount: Rs{payment['amount']}
+Customer history: {memory if memory else 'First time failure'}
+Return JSON: {{"failure_type":"...","severity":"LOW/MEDIUM/HIGH","recoverable":true,"reasoning":"..."}}
 """).content
+
+    time.sleep(1)
 
     # Groq Call 2 — Intervention
     intervention = llm.invoke(f"""
-Payment diagnosis: {diagnosis}
-Available interventions: WHATSAPP_LINK, RETRY, EMI_OFFER, ESCALATE
-
-Return JSON only:
-{{"intervention": "...", "reasoning": "..."}}
+Diagnosis: {diagnosis}
+Escalation level: {level}/4
+Previous intervention: {memory['last_intervention'] if memory else 'None'}
+Interventions: WHATSAPP_LINK, RETRY, EMI_OFFER, HUMAN_ESCALATION
+Return JSON: {{"intervention":"...","reasoning":"..."}}
 """).content
 
-    # Generate payment link
+    time.sleep(1)
+
     link = create_payment_link(
         payment['amount'],
-        payment['customer_name'],
-        f"Complete your payment of ₹{payment['amount']}"
+        customer,
+        f"Complete your payment of Rs{payment['amount']}"
     )
 
-    message = HINGLISH_TEMPLATES.get(payment['failure_code'], "Aapka payment pending hai 👇")
-    message += f" {link}"
+    base_message = HINGLISH_TEMPLATES.get(
+        payment['failure_code'],
+        "Aapka payment pending hai 👇"
+    )
+    escalation_note = ESCALATION_MESSAGES.get(level, "")
+    message = f"{base_message} {link}"
+
+    # Update memory
+    update_customer_memory(customer, "WHATSAPP_LINK", level)
 
     # Save to DB
     conn = sqlite3.connect(DB_PATH)
@@ -56,9 +116,15 @@ Return JSON only:
     conn.execute('''INSERT INTO audit_log
         (payment_id, agent, decision, reasoning, timestamp)
         VALUES (?,?,?,?,?)''',
-        (payment['id'], "RecoveryAgent", intervention, diagnosis, datetime.now().isoformat())
+        (payment['id'], "RecoveryAgent",
+         f"Level {level} intervention",
+         f"Memory: {memory}\nDiagnosis: {diagnosis}\nIntervention: {intervention}",
+         datetime.now().isoformat())
     )
-    conn.execute("UPDATE payments SET status='RECOVERY_ATTEMPTED' WHERE id=?", (payment['id'],))
+    conn.execute(
+        "UPDATE payments SET status='RECOVERY_ATTEMPTED' WHERE id=?",
+        (payment['id'],)
+    )
     conn.commit()
     conn.close()
 
@@ -67,5 +133,7 @@ Return JSON only:
         "message": message,
         "link": link,
         "diagnosis": diagnosis,
-        "intervention": intervention
+        "intervention": intervention,
+        "escalation_level": level,
+        "memory_used": memory is not None
     }

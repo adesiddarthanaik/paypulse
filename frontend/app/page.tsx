@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 const API = 'http://localhost:8000';
 
-type Tab = 'recovery' | 'risk' | 'growth' | 'finance' | 'audit';
+type Tab = 'recovery' | 'risk' | 'growth' | 'finance' | 'audit' | 'performance';
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>('recovery');
@@ -29,11 +29,12 @@ export default function Home() {
   };
 
   const tabs = [
-    { id: 'recovery', label: '💰 Recovery' },
-    { id: 'risk',     label: '🛡️ Risk' },
-    { id: 'growth',   label: '📈 Growth' },
-    { id: 'finance',  label: '📊 Finance' },
-    { id: 'audit',    label: '📋 Audit' },
+    { id: 'recovery',    label: '💰 Recovery' },
+    { id: 'risk',        label: '🛡️ Risk' },
+    { id: 'growth',      label: '📈 Growth' },
+    { id: 'finance',     label: '📊 Finance' },
+    { id: 'audit',       label: '📋 Audit' },
+    { id: 'performance', label: '⚡ Performance' },
   ];
 
   return (
@@ -104,24 +105,70 @@ export default function Home() {
         {tab === 'risk' && (
           <div>
             <h2 className="text-xl font-bold mb-2">AI Risk Manager</h2>
-            <p className="text-gray-400 mb-4">Evaluates each payment for fraud signals, enforces stopping rules, blocks high-risk recovery attempts.</p>
+            <p className="text-gray-400 mb-4">Dynamic risk scoring with Human-in-the-Loop review for medium risk payments.</p>
             <button onClick={() => run('run-batch')} disabled={loading}
               className="bg-red-600 hover:bg-red-700 disabled:opacity-50 px-6 py-3 rounded-lg font-bold mb-4">
-              {loading ? 'Running Agent...' : '▶ Run Risk Agent'}
+              {loading ? 'Running...' : '▶ Run Risk Agent'}
             </button>
+            <button onClick={() => run('hitl-queue', 'GET')} disabled={loading}
+              className="bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50 px-6 py-3 rounded-lg font-bold mb-4 ml-2">
+              📋 Load Review Queue
+            </button>
+
             {results?.results?.map((r: any, i: number) => (
-              <div key={i} className="bg-gray-800 rounded-lg p-4 mb-3 border border-gray-700">
-                {r.status === 'BLOCKED' ? (
-                  <>
-                    <p className="text-red-400 text-sm font-bold">🚫 NO-GO — Blocked</p>
-                    <p className="text-gray-400 text-xs mt-1">{r.reason}</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-green-400 text-sm font-bold">✓ GO — Recovery Approved</p>
-                    <p className="text-gray-400 text-xs mt-1">Payment ID: {r.result?.payment_id}</p>
-                  </>
-                )}
+              <div key={i} className={`rounded-lg p-4 mb-3 border ${
+                r.status === 'BLOCKED' ? 'bg-red-950 border-red-800' :
+                r.status === 'HUMAN_REVIEW' ? 'bg-yellow-950 border-yellow-800' :
+                'bg-gray-800 border-gray-700'
+              }`}>
+                <div className="flex justify-between items-center mb-2">
+                  <p className={`font-bold text-sm ${
+                    r.status === 'BLOCKED' ? 'text-red-400' :
+                    r.status === 'HUMAN_REVIEW' ? 'text-yellow-400' :
+                    'text-green-400'
+                  }`}>
+                    {r.status === 'BLOCKED' ? '🚫 AUTO BLOCKED' :
+                     r.status === 'HUMAN_REVIEW' ? '⚠️ HUMAN REVIEW REQUIRED' :
+                     '✓ AUTO APPROVED'}
+                  </p>
+                  <span className={`text-xs font-bold px-2 py-1 rounded ${
+                    (r.risk_score || r.result?.risk_score) >= 70 ? 'bg-red-600' :
+                    (r.risk_score || r.result?.risk_score) >= 40 ? 'bg-yellow-600' :
+                    'bg-green-600'
+                  }`}>
+                    Risk: {r.risk_score || r.result?.risk_score}/100
+                  </span>
+                </div>
+                {r.factors?.map((f: any, j: number) => (
+                  <p key={j} className="text-gray-400 text-xs">• {f.factor}: +{f.points}</p>
+                ))}
+              </div>
+            ))}
+
+            {/* HITL Queue */}
+            {Array.isArray(results) && results.map((item: any, i: number) => (
+              <div key={i} className="bg-yellow-950 border border-yellow-800 rounded-lg p-4 mb-3">
+                <div className="flex justify-between items-center mb-2">
+                  <div>
+                    <p className="text-yellow-400 font-bold text-sm">⚠️ {item.customer_name}</p>
+                    <p className="text-gray-400 text-xs">₹{item.amount} — {item.failure_code}</p>
+                    <p className="text-gray-400 text-xs">Risk Score: {item.risk_score}/100</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={async () => {
+                      await fetch(`${API}/api/hitl-decision/${item.payment_id}?decision=APPROVE`, {method:'POST'});
+                      alert('Approved!');
+                    }} className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-xs font-bold">
+                      ✓ Approve
+                    </button>
+                    <button onClick={async () => {
+                      await fetch(`${API}/api/hitl-decision/${item.payment_id}?decision=REJECT`, {method:'POST'});
+                      alert('Rejected!');
+                    }} className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-xs font-bold">
+                      ✗ Reject
+                    </button>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -208,6 +255,83 @@ export default function Home() {
                 <p className="text-gray-300 text-xs mt-1">{log.reasoning?.slice(0, 150)}...</p>
               </div>
             ))}
+          </div>
+        )}
+
+        {tab === 'performance' && (
+          <div>
+            <h2 className="text-xl font-bold mb-2">Agent Performance Dashboard</h2>
+            <p className="text-gray-400 mb-4">Real-time metrics across all 4 AI agents.</p>
+            <button onClick={() => run('performance', 'GET')} disabled={loading}
+              className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 px-6 py-3 rounded-lg font-bold mb-6">
+              {loading ? 'Loading...' : '⚡ Load Performance'}
+            </button>
+            {results && (
+              <div className="grid grid-cols-2 gap-4">
+                {/* Recovery */}
+                <div className="bg-gray-800 rounded-xl p-4 border border-blue-800 col-span-2">
+                  <p className="text-blue-400 font-bold mb-3">💰 Recovery Agent</p>
+                  <div className="grid grid-cols-4 gap-3">
+                    <div>
+                      <p className="text-gray-400 text-xs">Total Payments</p>
+                      <p className="text-2xl font-bold">{results.recovery?.total_payments}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400 text-xs">Recovered</p>
+                      <p className="text-2xl font-bold text-green-400">{results.recovery?.attempted}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400 text-xs">Amount</p>
+                      <p className="text-2xl font-bold text-green-400">₹{results.recovery?.amount_recovered?.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400 text-xs">Recovery Rate</p>
+                      <p className="text-2xl font-bold text-green-400">{results.recovery?.recovery_rate}%</p>
+                    </div>
+                  </div>
+                </div>
+                {/* Risk */}
+                <div className="bg-gray-800 rounded-xl p-4 border border-red-800">
+                  <p className="text-red-400 font-bold mb-3">🛡️ Risk Agent</p>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <p className="text-gray-400 text-sm">Auto Approved</p>
+                      <p className="text-green-400 font-bold">{results.risk?.approved}</p>
+                    </div>
+                    <div className="flex justify-between">
+                      <p className="text-gray-400 text-sm">Auto Blocked</p>
+                      <p className="text-red-400 font-bold">{results.risk?.blocked}</p>
+                    </div>
+                    <div className="flex justify-between">
+                      <p className="text-gray-400 text-sm">Human Review</p>
+                      <p className="text-yellow-400 font-bold">{results.risk?.human_review}</p>
+                    </div>
+                  </div>
+                </div>
+                {/* Memory */}
+                <div className="bg-gray-800 rounded-xl p-4 border border-purple-800">
+                  <p className="text-purple-400 font-bold mb-3">🧠 Memory Layer</p>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <p className="text-gray-400 text-sm">Customers Tracked</p>
+                      <p className="text-purple-400 font-bold">{results.memory?.customers_tracked}</p>
+                    </div>
+                    <div className="flex justify-between">
+                      <p className="text-gray-400 text-sm">Escalated Cases</p>
+                      <p className="text-yellow-400 font-bold">{results.memory?.escalated}</p>
+                    </div>
+                  </div>
+                </div>
+                {/* Finance */}
+                <div className="bg-gray-800 rounded-xl p-4 border border-amber-800 col-span-2">
+                  <p className="text-amber-400 font-bold mb-3">📊 Finance Agent</p>
+                  <div className="flex justify-between">
+                    <p className="text-gray-400 text-sm">Reconciliations Run</p>
+                    <p className="text-amber-400 font-bold">{results.finance?.reconciliations}</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
