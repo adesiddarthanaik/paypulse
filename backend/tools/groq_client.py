@@ -1,13 +1,20 @@
 from langchain_groq import ChatGroq
 import os
-from dotenv import load_dotenv
-
-load_dotenv(dotenv_path="../.env")
 
 def get_llm():
     return ChatGroq(
-        api_key=os.getenv("GROQ_API_KEY"),
+        api_key="your_groq_key_here",
         model="allam-2-7b",
-        temperature=0.1,
-        max_tokens=200
+        temperature=0,
+        max_tokens=300
     )
+
+def ask_llm(prompt: str) -> str:
+    llm = get_llm()
+    system = "You are a payment AI. Return ONLY valid JSON. No explanation. No markdown. No extra text."
+    from langchain_core.messages import HumanMessage, SystemMessage
+    result = llm.invoke([
+        SystemMessage(content=system),
+        HumanMessage(content=prompt)
+    ])
+    return result.content.strip()

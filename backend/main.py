@@ -112,29 +112,39 @@ def run_recovery(payment_id: str):
 # RUN RECOVERY BATCH
 # ---------------------------------------------------------
 
+from agents.graph import payment_graph
+
 @app.post("/api/run-batch")
 def run_batch():
+    import sqlite3
+    from database import DB_PATH
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    payments = [
-        dict(p)
-        for p in conn.execute(
-            "SELECT * FROM payments WHERE status='PENDING' LIMIT 10"
-        ).fetchall()
-    ]
+    payments = [dict(p) for p in conn.execute(
+        "SELECT * FROM payments WHERE status='PENDING' LIMIT 10"
+    ).fetchall()]
     conn.close()
 
     results = []
     for payment in payments:
-        risk = run_risk_agent(payment)
-
-        if risk['decision'] == "HUMAN_REVIEW":
+        state = payment_graph.invoke({
+            "payment": payment,
+            "risk_result": None,
+            "similar_cases": None,
+            "recovery_result": None,
+            "final_status": None,
+            "confidence": None
+        })
+        
+        risk = state.get('risk_result', {})
+        
+        if risk.get('decision') == 'HUMAN_REVIEW':
             conn = sqlite3.connect(DB_PATH)
-            conn.execute('''INSERT OR IGNORE INTO hitl_queue 
-                (payment_id, risk_score, factors, timestamp) 
+            conn.execute('''INSERT OR IGNORE INTO hitl_queue
+                (payment_id, risk_score, factors, timestamp)
                 VALUES (?,?,?,?)''',
-                (payment['id'], risk['risk_score'],
-                 str(risk['factors']),
+                (payment['id'], risk.get('risk_score', 0),
+                 str(risk.get('factors', [])),
                  datetime.now().isoformat())
             )
             conn.execute(
@@ -146,23 +156,26 @@ def run_batch():
             results.append({
                 "status": "HUMAN_REVIEW",
                 "payment_id": payment['id'],
-                "risk_score": risk['risk_score'],
-                "factors": risk['factors']
+                "risk_score": risk.get('risk_score'),
+                "confidence": state.get('confidence'),
+                "factors": risk.get('factors')
             })
             continue
 
-        if risk['decision'] == "NO-GO":
+        if risk.get('decision') == 'NO-GO':
             results.append({
                 "status": "BLOCKED",
                 "payment_id": payment['id'],
-                "risk_score": risk['risk_score'],
-                "factors": risk['factors']
+                "risk_score": risk.get('risk_score'),
+                "confidence": state.get('confidence'),
+                "factors": risk.get('factors')
             })
             continue
 
-        result = run_recovery_agent(payment)
-        result['risk_score'] = risk['risk_score']
-        results.append({"status": "SUCCESS", "result": result})
+        recovery = state.get('recovery_result', {})
+        recovery['confidence'] = state.get('confidence')
+        recovery['similar_cases'] = state.get('similar_cases', [])
+        results.append({"status": "SUCCESS", "result": recovery})
 
     return {"processed": len(results), "results": results}
 
