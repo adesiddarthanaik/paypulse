@@ -2,6 +2,7 @@ import sqlite3
 from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from harness.evaluator import run_harness
 
 from agents.growth_agent import run_growth_agent
 from agents.finance_agent import run_finance_agent
@@ -352,6 +353,13 @@ def run_growth():
         result = run_growth_agent(c['name'], c['last'], c['amount'])
         results.append(result)
     return {"processed": len(results), "results": results}
+
+
+
+
+@app.post("/api/run-harness")
+def run_agent_harness():
+    return run_harness()
 
 
 @app.post("/api/run-finance")

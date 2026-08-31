@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 const API = 'http://localhost:8000';
 
-type Tab = 'recovery' | 'risk' | 'growth' | 'finance' | 'audit' | 'performance';
+type Tab = 'recovery' | 'risk' | 'growth' | 'finance' | 'audit' | 'performance' | 'harness';
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>('recovery');
@@ -35,6 +35,7 @@ export default function Home() {
     { id: 'finance',     label: '📊 Finance' },
     { id: 'audit',       label: '📋 Audit' },
     { id: 'performance', label: '⚡ Performance' },
+    { id: 'harness',     label: '🧪 Harness' },
   ];
 
   return (
@@ -334,6 +335,90 @@ export default function Home() {
             )}
           </div>
         )}
+        {tab === 'harness' && (
+  <div>
+    <h2 className="text-xl font-bold mb-2">Agent Evaluation Harness</h2>
+    <p className="text-gray-400 mb-4">
+      Runs 10 predefined test cases across RecoveryAgent and RiskAgent. 
+      Measures accuracy, intervention correctness, and edge case handling.
+    </p>
+    <button onClick={() => run('run-harness')} disabled={loading}
+      className="bg-green-600 hover:bg-green-700 disabled:opacity-50 px-6 py-3 rounded-lg font-bold mb-4">
+      {loading ? 'Running Tests...' : '🧪 Run Harness'}
+    </button>
+
+    {results && (
+      <>
+        {/* Summary */}
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+            <p className="text-gray-400 text-xs">Total Tests</p>
+            <p className="text-2xl font-bold">{results.total_tests}</p>
+          </div>
+          <div className="bg-gray-800 rounded-xl p-4 border border-green-800">
+            <p className="text-gray-400 text-xs">Passed</p>
+            <p className="text-2xl font-bold text-green-400">{results.passed}</p>
+          </div>
+          <div className="bg-gray-800 rounded-xl p-4 border border-red-800">
+            <p className="text-gray-400 text-xs">Failed</p>
+            <p className="text-2xl font-bold text-red-400">{results.failed}</p>
+          </div>
+          <div className={`rounded-xl p-4 border ${
+            results.grade === 'A' ? 'bg-green-950 border-green-600' :
+            results.grade === 'B' ? 'bg-yellow-950 border-yellow-600' :
+            'bg-red-950 border-red-600'
+          }`}>
+            <p className="text-gray-400 text-xs">Accuracy</p>
+            <p className="text-2xl font-bold text-white">
+              {results.accuracy} ({results.grade})
+            </p>
+          </div>
+        </div>
+
+        {/* Test Results */}
+        {results.results?.map((r: any, i: number) => (
+          <div key={i} className={`rounded-lg p-4 mb-3 border ${
+            r.status === 'PASS' ? 'bg-green-950 border-green-800' :
+            r.status === 'FAIL' ? 'bg-red-950 border-red-800' :
+            'bg-yellow-950 border-yellow-800'
+          }`}>
+            <div className="flex justify-between items-center mb-2">
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-bold px-2 py-1 rounded ${
+                  r.status === 'PASS' ? 'bg-green-600' :
+                  r.status === 'FAIL' ? 'bg-red-600' : 'bg-yellow-600'
+                }`}>{r.status}</span>
+                <span className="text-blue-400 text-xs font-bold">{r.test_id}</span>
+                <span className="text-purple-400 text-xs">{r.agent}</span>
+              </div>
+              <span className="text-gray-500 text-xs">{r.response_time}</span>
+            </div>
+            <p className="text-white text-sm mb-2">{r.description}</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-gray-400 text-xs">Expected</p>
+                <p className="text-yellow-400 text-xs">
+                  {JSON.stringify(r.expected)}
+                </p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs">Got</p>
+                <p className="text-green-400 text-xs">
+                  {JSON.stringify(r.got)}
+                </p>
+              </div>
+            </div>
+            {r.failures?.length > 0 && (
+              <p className="text-red-400 text-xs mt-2">
+                ❌ {r.failures.join(', ')}
+              </p>
+            )}
+          </div>
+        ))}
+      </>
+    )}
+  </div>
+)}
 
       </div>
     </main>
