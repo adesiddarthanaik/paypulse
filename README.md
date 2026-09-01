@@ -229,7 +229,7 @@ npm run dev                  # starts on :3000
 ```
 
 ### Environment Variables
-Create `backend/.env` (never commit this):
+Create `backend/.env` :
 ```
 GROQ_API_KEY=your_groq_key
 RAZORPAY_KEY_ID=your_rzp_key
