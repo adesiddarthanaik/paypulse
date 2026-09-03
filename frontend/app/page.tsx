@@ -64,7 +64,7 @@ export default function Home() {
 
       <div className="flex gap-2 mb-6 flex-wrap">
         {tabs.map(t => (
-          <button key={t.id} onClick={() => { setTab(t.id as Tab); setResults(null); }}
+          <button key={t.id} onClick={() => { setTab(t.id as Tab); }}
             className={`px-4 py-2 rounded-lg font-medium transition-all ${
               tab === t.id ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
             }`}>
