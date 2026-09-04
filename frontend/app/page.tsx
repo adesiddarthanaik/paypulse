@@ -157,13 +157,13 @@ export default function Home() {
                   </div>
                   <div className="flex gap-2">
                     <button onClick={async () => {
-                      await fetch(`${API}/api/hitl-decision/${item.payment_id}?decision=APPROVE`, {method:'POST'});
+                      await fetch(`${API}/api/hitl-decision/${item.payment_id}?decision=APPROVE`, {method:'POST', headers: {'ngrok-skip-browser-warning': 'true'}});
                       alert('Approved!');
                     }} className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-xs font-bold">
                       ✓ Approve
                     </button>
                     <button onClick={async () => {
-                      await fetch(`${API}/api/hitl-decision/${item.payment_id}?decision=REJECT`, {method:'POST'});
+                      await fetch(`${API}/api/hitl-decision/${item.payment_id}?decision=REJECT`, {method:'POST', headers: {'ngrok-skip-browser-warning': 'true'}});
                       alert('Rejected!');
                     }} className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-xs font-bold">
                       ✗ Reject
