@@ -2,28 +2,30 @@
 import { useState } from 'react';
 
 const API = 'https://nintendo-afternoon-grill.ngrok-free.dev';
+const HEADERS = { 'ngrok-skip-browser-warning': 'true', 'Content-Type': 'application/json' };
 
 type Tab = 'recovery' | 'risk' | 'growth' | 'finance' | 'audit' | 'performance' | 'harness';
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>('recovery');
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<any>({});
+  const [tabResults, setTabResults] = useState<Record<string, any>>({});
   const [metrics, setMetrics] = useState<any>(null);
 
-  const run = async (endpoint: string, method: string = 'POST') => {
+  const results = tabResults[tab] ?? null;
+
+  const run = async (endpoint: string, method: string = 'POST', currentTab: Tab) => {
     setLoading(true);
-    setResults((prev: any) => ({ ...prev, [tab]: null }));
     try {
-      const res = await fetch(`${API}/api/${endpoint}`, { method, headers: { 'ngrok-skip-browser-warning': 'true' } });
+      const res = await fetch(`${API}/api/${endpoint}`, { method, headers: HEADERS });
       const data = await res.json();
-      setResults((prev: any) => ({ ...prev, [tab]: data }));
+      setTabResults(prev => ({ ...prev, [currentTab]: data }));
       if (endpoint === 'run-batch') {
-        const m = await fetch(`${API}/api/metrics`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
+        const m = await fetch(`${API}/api/metrics`, { headers: HEADERS });
         setMetrics(await m.json());
       }
     } catch (e) {
-      setResults((prev: any) => ({ ...prev, [tab]: { error: 'Failed to connect to backend' } }));
+      setTabResults(prev => ({ ...prev, [currentTab]: { error: 'Failed to connect to backend' } }));
     }
     setLoading(false);
   };
@@ -64,7 +66,7 @@ export default function Home() {
 
       <div className="flex gap-2 mb-6 flex-wrap">
         {tabs.map(t => (
-          <button key={t.id} onClick={() => { setTab(t.id as Tab); }}
+          <button key={t.id} onClick={() => setTab(t.id as Tab)}
             className={`px-4 py-2 rounded-lg font-medium transition-all ${
               tab === t.id ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
             }`}>
@@ -79,7 +81,7 @@ export default function Home() {
           <div>
             <h2 className="text-xl font-bold mb-2">AI Revenue Recovery</h2>
             <p className="text-gray-400 mb-4">Detects failed payments, diagnoses root cause, executes Hinglish recovery messages with Razorpay payment links.</p>
-            <button onClick={() => run('run-batch')} disabled={loading}
+            <button onClick={() => run('run-batch', 'POST', 'recovery')} disabled={loading}
               className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-6 py-3 rounded-lg font-bold mb-4">
               {loading ? 'Running Agent...' : '▶ Run Recovery Agent'}
             </button>
@@ -107,11 +109,11 @@ export default function Home() {
           <div>
             <h2 className="text-xl font-bold mb-2">AI Risk Manager</h2>
             <p className="text-gray-400 mb-4">Dynamic risk scoring with Human-in-the-Loop review for medium risk payments.</p>
-            <button onClick={() => run('run-batch')} disabled={loading}
+            <button onClick={() => run('run-risk', 'POST', 'risk')} disabled={loading}
               className="bg-red-600 hover:bg-red-700 disabled:opacity-50 px-6 py-3 rounded-lg font-bold mb-4">
               {loading ? 'Running...' : '▶ Run Risk Agent'}
             </button>
-            <button onClick={() => run('hitl-queue', 'GET')} disabled={loading}
+            <button onClick={() => run('hitl-queue', 'GET', 'risk')} disabled={loading}
               className="bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50 px-6 py-3 rounded-lg font-bold mb-4 ml-2">
               📋 Load Review Queue
             </button>
@@ -146,7 +148,6 @@ export default function Home() {
               </div>
             ))}
 
-            {/* HITL Queue */}
             {Array.isArray(results) && results.map((item: any, i: number) => (
               <div key={i} className="bg-yellow-950 border border-yellow-800 rounded-lg p-4 mb-3">
                 <div className="flex justify-between items-center mb-2">
@@ -157,13 +158,13 @@ export default function Home() {
                   </div>
                   <div className="flex gap-2">
                     <button onClick={async () => {
-                      await fetch(`${API}/api/hitl-decision/${item.payment_id}?decision=APPROVE`, {method:'POST', headers: {'ngrok-skip-browser-warning': 'true'}});
+                      await fetch(`${API}/api/hitl-decision/${item.payment_id}?decision=APPROVE`, {method:'POST', headers: HEADERS});
                       alert('Approved!');
                     }} className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-xs font-bold">
                       ✓ Approve
                     </button>
                     <button onClick={async () => {
-                      await fetch(`${API}/api/hitl-decision/${item.payment_id}?decision=REJECT`, {method:'POST', headers: {'ngrok-skip-browser-warning': 'true'}});
+                      await fetch(`${API}/api/hitl-decision/${item.payment_id}?decision=REJECT`, {method:'POST', headers: HEADERS});
                       alert('Rejected!');
                     }} className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-xs font-bold">
                       ✗ Reject
@@ -179,7 +180,7 @@ export default function Home() {
           <div>
             <h2 className="text-xl font-bold mb-2">AI Growth Agent</h2>
             <p className="text-gray-400 mb-4">Analyzes customer purchase history and generates personalized upsell offers in Hinglish.</p>
-            <button onClick={() => run('run-growth')} disabled={loading}
+            <button onClick={() => run('run-growth', 'POST', 'growth')} disabled={loading}
               className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 px-6 py-3 rounded-lg font-bold mb-4">
               {loading ? 'Running Agent...' : '▶ Run Growth Agent'}
             </button>
@@ -199,7 +200,7 @@ export default function Home() {
           <div>
             <h2 className="text-xl font-bold mb-2">AI Finance Controller</h2>
             <p className="text-gray-400 mb-4">Reconciles settlement records, identifies exceptions, generates financial reports.</p>
-            <button onClick={() => run('run-finance')} disabled={loading}
+            <button onClick={() => run('run-finance', 'POST', 'finance')} disabled={loading}
               className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 px-6 py-3 rounded-lg font-bold mb-4">
               {loading ? 'Running Agent...' : '▶ Run Finance Agent'}
             </button>
@@ -242,7 +243,7 @@ export default function Home() {
           <div>
             <h2 className="text-xl font-bold mb-2">Audit Trail</h2>
             <p className="text-gray-400 mb-4">Every agent decision logged with reasoning and timestamp.</p>
-            <button onClick={() => run('audit-trail', 'GET')} disabled={loading}
+            <button onClick={() => run('audit-trail', 'GET', 'audit')} disabled={loading}
               className="bg-gray-600 hover:bg-gray-700 disabled:opacity-50 px-6 py-3 rounded-lg font-bold mb-4">
               {loading ? 'Loading...' : '📋 Load Audit Trail'}
             </button>
@@ -263,13 +264,12 @@ export default function Home() {
           <div>
             <h2 className="text-xl font-bold mb-2">Agent Performance Dashboard</h2>
             <p className="text-gray-400 mb-4">Real-time metrics across all 4 AI agents.</p>
-            <button onClick={() => run('performance', 'GET')} disabled={loading}
+            <button onClick={() => run('performance', 'GET', 'performance')} disabled={loading}
               className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 px-6 py-3 rounded-lg font-bold mb-6">
               {loading ? 'Loading...' : '⚡ Load Performance'}
             </button>
             {results && (
               <div className="grid grid-cols-2 gap-4">
-                {/* Recovery */}
                 <div className="bg-gray-800 rounded-xl p-4 border border-blue-800 col-span-2">
                   <p className="text-blue-400 font-bold mb-3">💰 Recovery Agent</p>
                   <div className="grid grid-cols-4 gap-3">
@@ -291,7 +291,6 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-                {/* Risk */}
                 <div className="bg-gray-800 rounded-xl p-4 border border-red-800">
                   <p className="text-red-400 font-bold mb-3">🛡️ Risk Agent</p>
                   <div className="space-y-2">
@@ -309,7 +308,6 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-                {/* Memory */}
                 <div className="bg-gray-800 rounded-xl p-4 border border-purple-800">
                   <p className="text-purple-400 font-bold mb-3">🧠 Memory Layer</p>
                   <div className="space-y-2">
@@ -323,7 +321,6 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-                {/* Finance */}
                 <div className="bg-gray-800 rounded-xl p-4 border border-amber-800 col-span-2">
                   <p className="text-amber-400 font-bold mb-3">📊 Finance Agent</p>
                   <div className="flex justify-between">
@@ -335,90 +332,81 @@ export default function Home() {
             )}
           </div>
         )}
+
         {tab === 'harness' && (
-  <div>
-    <h2 className="text-xl font-bold mb-2">Agent Evaluation Harness</h2>
-    <p className="text-gray-400 mb-4">
-      Runs 10 predefined test cases across RecoveryAgent and RiskAgent. 
-      Measures accuracy, intervention correctness, and edge case handling.
-    </p>
-    <button onClick={() => run('run-harness')} disabled={loading}
-      className="bg-green-600 hover:bg-green-700 disabled:opacity-50 px-6 py-3 rounded-lg font-bold mb-4">
-      {loading ? 'Running Tests...' : '🧪 Run Harness'}
-    </button>
-
-    {results && (
-      <>
-        {/* Summary */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-            <p className="text-gray-400 text-xs">Total Tests</p>
-            <p className="text-2xl font-bold">{results.total_tests}</p>
-          </div>
-          <div className="bg-gray-800 rounded-xl p-4 border border-green-800">
-            <p className="text-gray-400 text-xs">Passed</p>
-            <p className="text-2xl font-bold text-green-400">{results.passed}</p>
-          </div>
-          <div className="bg-gray-800 rounded-xl p-4 border border-red-800">
-            <p className="text-gray-400 text-xs">Failed</p>
-            <p className="text-2xl font-bold text-red-400">{results.failed}</p>
-          </div>
-          <div className={`rounded-xl p-4 border ${
-            results.grade === 'A' ? 'bg-green-950 border-green-600' :
-            results.grade === 'B' ? 'bg-yellow-950 border-yellow-600' :
-            'bg-red-950 border-red-600'
-          }`}>
-            <p className="text-gray-400 text-xs">Accuracy</p>
-            <p className="text-2xl font-bold text-white">
-              {results.accuracy} ({results.grade})
+          <div>
+            <h2 className="text-xl font-bold mb-2">Agent Evaluation Harness</h2>
+            <p className="text-gray-400 mb-4">
+              Runs 10 predefined test cases across RecoveryAgent and RiskAgent.
+              Measures accuracy, intervention correctness, and edge case handling.
             </p>
-          </div>
-        </div>
+            <button onClick={() => run('run-harness', 'POST', 'harness')} disabled={loading}
+              className="bg-green-600 hover:bg-green-700 disabled:opacity-50 px-6 py-3 rounded-lg font-bold mb-4">
+              {loading ? 'Running Tests...' : '🧪 Run Harness'}
+            </button>
 
-        {/* Test Results */}
-        {results.results?.map((r: any, i: number) => (
-          <div key={i} className={`rounded-lg p-4 mb-3 border ${
-            r.status === 'PASS' ? 'bg-green-950 border-green-800' :
-            r.status === 'FAIL' ? 'bg-red-950 border-red-800' :
-            'bg-yellow-950 border-yellow-800'
-          }`}>
-            <div className="flex justify-between items-center mb-2">
-              <div className="flex items-center gap-2">
-                <span className={`text-xs font-bold px-2 py-1 rounded ${
-                  r.status === 'PASS' ? 'bg-green-600' :
-                  r.status === 'FAIL' ? 'bg-red-600' : 'bg-yellow-600'
-                }`}>{r.status}</span>
-                <span className="text-blue-400 text-xs font-bold">{r.test_id}</span>
-                <span className="text-purple-400 text-xs">{r.agent}</span>
-              </div>
-              <span className="text-gray-500 text-xs">{r.response_time}</span>
-            </div>
-            <p className="text-white text-sm mb-2">{r.description}</p>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <p className="text-gray-400 text-xs">Expected</p>
-                <p className="text-yellow-400 text-xs">
-                  {JSON.stringify(r.expected)}
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-400 text-xs">Got</p>
-                <p className="text-green-400 text-xs">
-                  {JSON.stringify(r.got)}
-                </p>
-              </div>
-            </div>
-            {r.failures?.length > 0 && (
-              <p className="text-red-400 text-xs mt-2">
-                ❌ {r.failures.join(', ')}
-              </p>
+            {results && (
+              <>
+                <div className="grid grid-cols-4 gap-4 mb-6">
+                  <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+                    <p className="text-gray-400 text-xs">Total Tests</p>
+                    <p className="text-2xl font-bold">{results.total_tests}</p>
+                  </div>
+                  <div className="bg-gray-800 rounded-xl p-4 border border-green-800">
+                    <p className="text-gray-400 text-xs">Passed</p>
+                    <p className="text-2xl font-bold text-green-400">{results.passed}</p>
+                  </div>
+                  <div className="bg-gray-800 rounded-xl p-4 border border-red-800">
+                    <p className="text-gray-400 text-xs">Failed</p>
+                    <p className="text-2xl font-bold text-red-400">{results.failed}</p>
+                  </div>
+                  <div className={`rounded-xl p-4 border ${
+                    results.grade === 'A' ? 'bg-green-950 border-green-600' :
+                    results.grade === 'B' ? 'bg-yellow-950 border-yellow-600' :
+                    'bg-red-950 border-red-600'
+                  }`}>
+                    <p className="text-gray-400 text-xs">Accuracy</p>
+                    <p className="text-2xl font-bold text-white">{results.accuracy} ({results.grade})</p>
+                  </div>
+                </div>
+
+                {results.results?.map((r: any, i: number) => (
+                  <div key={i} className={`rounded-lg p-4 mb-3 border ${
+                    r.status === 'PASS' ? 'bg-green-950 border-green-800' :
+                    r.status === 'FAIL' ? 'bg-red-950 border-red-800' :
+                    'bg-yellow-950 border-yellow-800'
+                  }`}>
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-bold px-2 py-1 rounded ${
+                          r.status === 'PASS' ? 'bg-green-600' :
+                          r.status === 'FAIL' ? 'bg-red-600' : 'bg-yellow-600'
+                        }`}>{r.status}</span>
+                        <span className="text-blue-400 text-xs font-bold">{r.test_id}</span>
+                        <span className="text-purple-400 text-xs">{r.agent}</span>
+                      </div>
+                      <span className="text-gray-500 text-xs">{r.response_time}</span>
+                    </div>
+                    <p className="text-white text-sm mb-2">{r.description}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="text-gray-400 text-xs">Expected</p>
+                        <p className="text-yellow-400 text-xs">{JSON.stringify(r.expected)}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400 text-xs">Got</p>
+                        <p className="text-green-400 text-xs">{JSON.stringify(r.got)}</p>
+                      </div>
+                    </div>
+                    {r.failures?.length > 0 && (
+                      <p className="text-red-400 text-xs mt-2">❌ {r.failures.join(', ')}</p>
+                    )}
+                  </div>
+                ))}
+              </>
             )}
           </div>
-        ))}
-      </>
-    )}
-  </div>
-)}
+        )}
 
       </div>
     </main>
