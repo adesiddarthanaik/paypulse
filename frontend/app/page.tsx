@@ -8,22 +8,22 @@ type Tab = 'recovery' | 'risk' | 'growth' | 'finance' | 'audit' | 'performance' 
 export default function Home() {
   const [tab, setTab] = useState<Tab>('recovery');
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<any>(null);
+  const [results, setResults] = useState<any>({});
   const [metrics, setMetrics] = useState<any>(null);
 
   const run = async (endpoint: string, method: string = 'POST') => {
     setLoading(true);
-    setResults(null);
+    setResults((prev: any) => ({ ...prev, [tab]: null }));
     try {
       const res = await fetch(`${API}/api/${endpoint}`, { method });
       const data = await res.json();
-      setResults(data);
+      setResults((prev: any) => ({ ...prev, [tab]: data }));
       if (endpoint === 'run-batch') {
         const m = await fetch(`${API}/api/metrics`);
         setMetrics(await m.json());
       }
     } catch (e) {
-      setResults({ error: 'Failed to connect to backend' });
+      setResults((prev: any) => ({ ...prev, [tab]: { error: 'Failed to connect to backend' } }));
     }
     setLoading(false);
   };
