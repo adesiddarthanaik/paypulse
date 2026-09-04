@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 
-const API = 'http://localhost:8000';
+const API = 'https://nintendo-afternoon-grill.ngrok-free.dev';
 
 type Tab = 'recovery' | 'risk' | 'growth' | 'finance' | 'audit' | 'performance' | 'harness';
 
