@@ -109,7 +109,7 @@ export default function Home() {
           <div>
             <h2 className="text-xl font-bold mb-2">AI Risk Manager</h2>
             <p className="text-gray-400 mb-4">Dynamic risk scoring with Human-in-the-Loop review for medium risk payments.</p>
-            <button onClick={() => run('run-risk', 'POST', 'risk')} disabled={loading}
+            <button onClick={() => run('run-batch', 'POST', 'risk')} disabled={loading}
               className="bg-red-600 hover:bg-red-700 disabled:opacity-50 px-6 py-3 rounded-lg font-bold mb-4">
               {loading ? 'Running...' : '▶ Run Risk Agent'}
             </button>
