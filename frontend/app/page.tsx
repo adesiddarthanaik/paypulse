@@ -15,11 +15,11 @@ export default function Home() {
     setLoading(true);
     setResults((prev: any) => ({ ...prev, [tab]: null }));
     try {
-      const res = await fetch(`${API}/api/${endpoint}`, { method });
+      const res = await fetch(`${API}/api/${endpoint}`, { method, headers: { 'ngrok-skip-browser-warning': 'true' } });
       const data = await res.json();
       setResults((prev: any) => ({ ...prev, [tab]: data }));
       if (endpoint === 'run-batch') {
-        const m = await fetch(`${API}/api/metrics`);
+        const m = await fetch(`${API}/api/metrics`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
         setMetrics(await m.json());
       }
     } catch (e) {
