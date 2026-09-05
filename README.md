@@ -348,7 +348,7 @@ Open http://localhost:3000
 | Payment links | Mocked | **Real Razorpay API** |
 | Deployment | Local/prototype | **Live on Vercel** |
 
----
+---  
 
 ## 📈 Why This Scales
 
