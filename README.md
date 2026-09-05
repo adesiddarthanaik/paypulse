@@ -5,11 +5,7 @@
 
 [![Live Demo](https://img.shields.io/badge/🚀%20Live%20Demo-paypulse--seven.vercel.app-blue?style=for-the-badge)](https://paypulse-seven.vercel.app)
 [![GitHub](https://img.shields.io/badge/GitHub-PayPulse-black?style=for-the-badge&logo=github)](https://github.com/adesiddarthanaik/PayPulse)
-[![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge)](https://fastapi.tiangolo.com)
-[![Next.js](https://img.shields.io/badge/Frontend-Next.js-black?style=for-the-badge)](https://nextjs.org)
-
 </div>
-
 ---
 
 ## 🏆 Why Open Track?
